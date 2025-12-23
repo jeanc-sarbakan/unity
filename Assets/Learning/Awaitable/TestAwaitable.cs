@@ -9,42 +9,22 @@ public class TestAwaitable : MonoBehaviour
     [SerializeField] private Button _startProcessButton;
     [SerializeField] private Button _loadSceneButton;
     [SerializeField] private Button _waitCancelButton;
-
-    private CancellationTokenSource _cancellationTokenSource;
     
     private void Start()
     {
-        _startProcessButton.onClick.AddListener(StartAsyncProcess);
-        _loadSceneButton.onClick.AddListener(LoadSceneExample);
+        _startProcessButton.onClick.AddListener(TestAwaitableAsync);
+        _loadSceneButton.onClick.AddListener(TestAwaitableFromAsyncOperation);
         
         var colors = _waitCancelButton.colors;
         colors.normalColor = Color.indianRed;
         colors.highlightedColor = Color.indianRed;
         _waitCancelButton.colors = colors;
         
-        _waitCancelButton.onClick.AddListener(OnWaitCancelButtonClicked);
+        _waitCancelButton.onClick.AddListener(TestAwaitableCancel);
     }
-
-    private void OnWaitCancelButtonClicked()
-    {
-        if (_cancellationTokenSource != null)
-        {
-            CancelWaitOperation();
-        }
-        else
-        {
-            WaitTenSecondsAsync();
-        }
-    }
-
-    private void CancelWaitOperation()
-    {
-        _cancellationTokenSource?.Cancel();
-        Debug.Log("Cancel requested on 10 second wait");
-    }
-
+    
     // An async void method is often used for event handlers or Unity lifecycle methods (like Start)
-    private async void StartAsyncProcess()
+    private async void TestAwaitableAsync()
     {
         Debug.Log("Process Started");
         
@@ -106,15 +86,20 @@ public class TestAwaitable : MonoBehaviour
         Debug.Log($"IsCompleted before await: {myAwaitable.IsCompleted}");
         await myAwaitable;
         Debug.Log($"IsCompleted after await: {myAwaitable.IsCompleted}");
+        
+        // 8. Example of Awaitable<T> - returning a value
+        int calculatedValue = await CalculateValueAsync();
+        Debug.Log($"Returned value from async operation: {calculatedValue}");
     }
-
-    private async void LoadSceneExample()
+    
+    #region Awaitable FromAsyncOperation
+    
+    private async void TestAwaitableFromAsyncOperation()
     {
         Debug.Log("Starting Scene Load...");
         try
         {
-            
-            // 8. Example of awaiting an AsyncOperation (like loading a scene or resources)
+            // 9. Example of awaiting an AsyncOperation (like loading a scene or resources)
             // This converts a legacy AsyncOperation into an Awaitable.
             // Note: Ensure "TestScene" exists in Build Settings or change the name.
             var asyncOp = SceneManager.LoadSceneAsync("TestScene", LoadSceneMode.Additive);
@@ -129,10 +114,29 @@ public class TestAwaitable : MonoBehaviour
             Debug.LogError($"Failed to load scene: {e.Message}");
         }
     }
+    
+    #endregion
+    
+    #region Awaitable Cancel
+    
+    private CancellationTokenSource _cancellationTokenSource;
 
-    private async void WaitTenSecondsAsync()
+    private void TestAwaitableCancel()
     {
-        // 9. Example of using Awaitable.Cancel
+        if (_cancellationTokenSource != null)
+        {
+            _cancellationTokenSource?.Cancel();
+            Debug.Log("Cancel requested on 10 second wait");
+        }
+        else
+        {
+            TestAwaitableCancelAsync();
+        }
+    }
+    
+    private async void TestAwaitableCancelAsync()
+    {
+        // 10. Example of using Awaitable.Cancel
         // This demonstrates waiting for 10 seconds and allowing cancellation via CancellationToken
         _cancellationTokenSource = new CancellationTokenSource();
         
@@ -174,6 +178,8 @@ public class TestAwaitable : MonoBehaviour
         }
     }
     
+    #endregion
+    
     // Example of running an Awaitable and destroying the token when the object is destroyed
     private async void OnEnable()
     {
@@ -195,5 +201,31 @@ public class TestAwaitable : MonoBehaviour
         {
             Debug.Log("Stopped because object was disabled or destroyed.");
         }
+    }
+
+    // 10. Example of Awaitable<T> - an async method that returns a value
+    private async Awaitable<int> CalculateValueAsync()
+    {
+        Debug.Log("Starting calculation...");
+        
+        // Wait for 2 seconds before calculating
+        await Awaitable.WaitForSecondsAsync(2f);
+        
+        // Switch to background thread for heavy calculation
+        await Awaitable.BackgroundThreadAsync();
+        
+        int sum = 0;
+        for (int i = 0; i < 1000; i++)
+        {
+            sum += i;
+        }
+        
+        // Switch back to main thread
+        await Awaitable.MainThreadAsync();
+        
+        Debug.Log("Calculation completed, returning result");
+        
+        // Return the calculated value
+        return sum;
     }
 }
